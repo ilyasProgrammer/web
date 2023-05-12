@@ -5,7 +5,7 @@
     "name": "Confirm/Alert pop-up before saving",
     "version": "14.0.1.0.0",
     "depends": ["web"],
-    "author": "Smile,Odoo Community Association (OCA)",
+    "author": "Smile, Odoo Community Association (OCA)",
     "license": "AGPL-3",
     "website": "https://github.com/OCA/web",
     "category": "Tools",
