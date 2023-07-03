@@ -8,18 +8,17 @@ class TestIrModel(SavepointCase):
         super(TestIrModel, cls).setUpClass()
         cls.readonly_group = cls.env.ref("base.group_user")
         cls.group_manager = cls.env.ref("base.group_erp_manager")
-        cls.ir_model = cls.env["ir.model"].create(
-            {"name": "x_test_model", "model": "x_test.model"}
-        )
-        User = cls.env["res.users"]
-        cls.manager = User.create(
+        cls.partner_model = cls.env["ir.model"].search([("model", "=", "res.partner")])
+        cls.ir_model = cls.env["ir.model"].search([("model", "=", "ir.model")])
+        res_users_obj = cls.env["res.users"]
+        cls.manager = res_users_obj.create(
             {
                 "name": "Manager",
                 "login": "Manager",
                 "groups_id": cls.group_manager,
             }
         )
-        cls.user_readonly = User.create(
+        cls.user_readonly = res_users_obj.create(
             {
                 "name": "User readonly",
                 "login": "user_readonly",
@@ -27,56 +26,45 @@ class TestIrModel(SavepointCase):
             }
         )
 
-    def test_check_access_rights(self):
-        """Tests check_access_rights function
+    def test_check_access_rights_readonly(self):
+        """Tests check_access_rights function for readonly group"""
 
-        if operation 'read' or selected user not in readonly group,
-        the expected return value is False
+        model = self.partner_model.with_user(self.user_readonly)
+        self.assertTrue(model.check_access_rights("read", False))
+        self.assertFalse(model.check_access_rights("write", False))
+        self.assertFalse(model.check_access_rights("create", False))
+        self.assertFalse(model.check_access_rights("unlink", False))
+
+    def test_check_access_rights_manager(self):
+        """Tests check_access_rights function for manager group
+
+        checks acces rights by user in manager group
+        checks accer rights after adds this user to readonly group
         """
-        self.ir_model.readonly_group_ids = self.readonly_group
 
-        # Test with a user who is in the readonly group
-        self.assertFalse(
-            self.env["x_test.model"]
-            .with_user(self.user_readonly)
-            .check_access_rights("read", raise_exception=False)
-        )
-        # If raise_exception not expected function will return False
-        self.assertFalse(
-            self.env["x_test.model"]
-            .with_user(self.user_readonly)
-            .check_access_rights("write", raise_exception=False)
-        )
+        model = self.partner_model.with_user(self.manager)
+        # group_manager have access to all operations by default
+        self.assertNotIn(self.group_manager, self.partner_model.readonly_group_ids)
+        self.assertTrue(model.check_access_rights("read", False))
+        self.assertTrue(model.check_access_rights("write", False))
+        self.assertTrue(model.check_access_rights("create", False))
+        self.assertTrue(model.check_access_rights("unlink", False))
+
+        # Add group_manager to readonly_group_ids
+        model.write({"readonly_group_ids": [(4, self.group_manager.id)]})
+        self.ir_model.write({"readonly_group_ids": [(4, self.group_manager.id)]})
+        self.assertIn(self.group_manager, self.partner_model.readonly_group_ids)
+        self.assertTrue(model.check_access_rights("read", False))
+
+        # If raise_exception is not expected, function will return False
+        self.assertFalse(model.check_access_rights("write", False))
+        self.assertFalse(model.check_access_rights("create", False))
+        self.assertFalse(model.check_access_rights("unlink", False))
+
+        # If raise_exception is expected, function will return AccessError
         with self.assertRaises(AccessError):
-            self.env["x_test.model"].with_user(self.user_readonly).check_access_rights(
-                "write", raise_exception=True
-            )
+            model.check_access_rights("write", raise_exception=True)
         with self.assertRaises(AccessError):
-            self.env["x_test.model"].with_user(self.user_readonly).check_access_rights(
-                "create", raise_exception=True
-            )
+            model.check_access_rights("create", raise_exception=True)
         with self.assertRaises(AccessError):
-            self.env["x_test.model"].with_user(self.user_readonly).check_access_rights(
-                "unlink", raise_exception=True
-            )
-        # Test with a user who is not in the readonly group
-        self.assertFalse(
-            self.env["x_test.model"]
-            .with_user(self.manager)
-            .check_access_rights("read", raise_exception=False)
-        )
-        self.assertFalse(
-            self.env["x_test.model"]
-            .with_user(self.manager)
-            .check_access_rights("create", raise_exception=False)
-        )
-        self.assertFalse(
-            self.env["x_test.model"]
-            .with_user(self.manager)
-            .check_access_rights("unlink", raise_exception=False)
-        )
-        self.assertFalse(
-            self.env["x_test.model"]
-            .with_user(self.manager)
-            .check_access_rights("write", raise_exception=False)
-        )
+            model.check_access_rights("unlink", raise_exception=True)
