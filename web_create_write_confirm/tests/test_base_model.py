@@ -19,6 +19,7 @@ class TestBaseModel(SavepointCase):
             check_ret_value,
             msg="Return value must be False or dictionary of popup.message objects",
         )
+        self.env["popup.message"]._compute_field_name()
 
     def test_execute_processing(self):
         """Test correct flow of execute_processing method"""
